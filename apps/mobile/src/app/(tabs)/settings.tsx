@@ -36,6 +36,7 @@ export default function Settings() {
   const [quietError, setQuietError] = useState<string | null>(null);
   const [askWipe, setAskWipe] = useState(false);
   const [wiping, setWiping] = useState(false);
+  const [wipeError, setWipeError] = useState<string | null>(null);
 
   const refreshPermission = useCallback(() => {
     permissionStatus().then(setPermission, () => setPermission(null));
@@ -85,10 +86,14 @@ export default function Settings() {
   const saveCode = async () => {
     const t = code.trim();
     if (t.length < 8) return setCodeMsg('El código parece incompleto. Revisa que lo hayas copiado entero.');
-    await setToken(t);
-    setCode('');
-    setHasToken(true);
-    setCodeMsg('Código guardado en este teléfono.');
+    try {
+      await setToken(t);
+      setCode('');
+      setHasToken(true);
+      setCodeMsg('Código guardado en este teléfono.');
+    } catch {
+      setCodeMsg('No se pudo guardar el código. Intenta de nuevo.');
+    }
   };
 
   const doExport = async (kind: 'json' | 'csv') => {
@@ -108,10 +113,13 @@ export default function Settings() {
 
   const doWipe = async () => {
     setWiping(true);
+    setWipeError(null);
     try {
       await wipeEverything();
       setAskWipe(false);
       router.replace('/onboarding');
+    } catch {
+      setWipeError('No se pudo terminar de borrar. Intenta de nuevo; lo que ya se borró no se recupera.');
     } finally {
       setWiping(false);
     }
@@ -233,6 +241,7 @@ export default function Settings() {
           Se borran tus actividades, objetivos, disponibilidad, preferencias, recordatorios programados y el código de participante. No se puede deshacer.
         </T>
         <Banner kind="warn">Si participas en el piloto, exporta tus datos antes de borrar.</Banner>
+        {wipeError ? <Banner kind="error">{wipeError}</Banner> : null}
         <Button kind="danger" label="Sí, borrar todo" onPress={doWipe} loading={wiping} />
         <Button kind="ghost" label="Cancelar" onPress={() => setAskWipe(false)} disabled={wiping} />
       </Sheet>
