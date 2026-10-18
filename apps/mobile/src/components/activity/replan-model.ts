@@ -1,8 +1,8 @@
 import { describeGraphIssue } from '@drfocus/contracts';
 import { diffPlans } from '@drfocus/domain';
 import type { PlannerConflict } from '@drfocus/planner';
-import type { ProposedPlan } from '@/db/repo';
-import { fmtDur } from '@/lib/format';
+import type { ProposedPlan } from '../../db/repo';
+import { fmtDur } from '../../lib/format';
 
 type Point = { key: string; title: string; sessionStart: string | null; dueAt: string | null };
 
