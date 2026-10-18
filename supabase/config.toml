@@ -1,0 +1,6 @@
+# Configuración mínima de Supabase CLI para este repositorio.
+project_id = "drfocus"
+
+[functions.plan]
+# La app manda el token del participante, no un JWT de Supabase; la función lo valida contra `participants`.
+verify_jwt = false
