@@ -1,0 +1,29 @@
+{
+  "name": "drfocus",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:mobile": "npm --workspace apps/mobile run start",
+    "dev:function": "supabase functions serve plan --env-file supabase/.env",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm --workspace apps/mobile run typecheck",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "maestro test apps/mobile/.maestro",
+    "build:android:preview": "npm --workspace apps/mobile run build:android:preview",
+    "db:generate": "npm --workspace apps/mobile run db:generate"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.6",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5"
+  },
+  "type": "module"
+}
