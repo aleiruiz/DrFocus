@@ -40,7 +40,7 @@ export default function ActivityDetail() {
 
   // El aviso de «Plan actualizado» se muestra unos segundos y luego se quita.
   useEffect(() => {
-    if (updated !== '1') return;
+    if (!updated) return;
     const t = setTimeout(() => router.setParams({ updated: '' }), 5000);
     return () => clearTimeout(t);
   }, [updated]);
@@ -99,6 +99,7 @@ export default function ActivityDetail() {
     <View style={{ flex: 1 }}>
       <Screen>
         {updated === '1' ? <Banner kind="ok">Plan actualizado. Los recordatorios ya siguen el nuevo horario.</Banner> : null}
+        {updated === 'sin-avisos' ? <Banner kind="warn">Plan actualizado, pero no se pudieron reprogramar los recordatorios. Se volverá a intentar al abrir la app.</Banner> : null}
         <ActivitySummary a={activity} objectives={objectives} zone={zone} />
 
         {activity.status === 'completed' ? <Banner kind="ok" title="Actividad terminada">Completaste todos sus objetivos.</Banner> : null}

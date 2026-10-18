@@ -1,7 +1,7 @@
 import { colors, space } from '@drfocus/design-tokens';
 import { mascotMessage } from '@drfocus/domain';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { comparePlan, describeConflict } from '@/components/activity/replan-model';
 import { PlanComparison } from '@/components/activity/PlanComparison';
@@ -16,15 +16,16 @@ import { useNow, usePrefs } from '@/lib/hooks';
 type Loaded = { revisionId: string; kind: string; plan: repo.ProposedPlan; splitDropped: boolean };
 
 /**
- * Un borrador de «Dividir más» sirve solo si nadie tocó los objetivos después de crearlo:
- * editar, borrar o registrar avance no sube activity.revision, así que se compara contra los objetivos.
+ * Un borrador de «Dividir más» sirve solo si los objetivos siguen como estaban al dividir.
+ * Editar, borrar o registrar avance no sube activity.revision, así que se compara el contenido.
  */
-function splitStillValid(draft: NonNullable<ReturnType<typeof repo.latestDraft>>, plan: repo.ProposedPlan, activityId: string) {
-  const current = repo.getObjectives(activityId);
-  const ids = new Set(current.map((o) => o.id));
-  const touched = current.some((o) => o.updatedAt > draft.createdAt);
-  const gone = plan.objectives.some((o) => o.existingId && !ids.has(o.existingId));
-  return !touched && !gone;
+function splitStillValid(plan: repo.ProposedPlan, activityId: string) {
+  const byId = new Map(repo.getObjectives(activityId).map((o) => [o.id, o]));
+  return plan.objectives.every((d) => {
+    if (!d.existingId) return true;
+    const o = byId.get(d.existingId);
+    return !!o && o.status === d.status && o.remainingMinutes === d.remainingMinutes && o.estimatedMinutes === d.estimatedMinutes && o.title === d.title && o.expectedResult === d.expectedResult;
+  });
 }
 
 /**
@@ -38,7 +39,7 @@ function prepare(id: string): Loaded | null {
   let splitDropped = false;
   if (draft && draft.kind === 'split' && draft.baseRevision === activity.revision) {
     const p = JSON.parse(draft.proposedJson) as repo.ProposedPlan;
-    if (splitStillValid(draft, p, id)) {
+    if (splitStillValid(p, id)) {
       proposeReplan(id, p.objectives, 'split', p.assumptions);
     } else {
       repo.discardDraft(draft.id);
@@ -81,6 +82,17 @@ export default function Replan() {
 
   useFocusEffect(load);
 
+  // Al salir sin decidir, la propuesta se descarta para que «Reorganizar» empiece limpio la próxima vez.
+  const revisionRef = useRef<string | null>(null);
+  revisionRef.current = loaded?.revisionId ?? null;
+  useEffect(
+    () => () => {
+      const rev = revisionRef.current;
+      if (rev && repo.latestDraft(id)?.id === rev) repo.discardDraft(rev);
+    },
+    [id],
+  );
+
   const activity = useMemo(() => repo.getActivity(id), [id, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const cmp = useMemo(() => (loaded ? comparePlan(loaded.plan) : null), [loaded]);
 
@@ -111,8 +123,11 @@ export default function Replan() {
     setError(null);
     try {
       repo.acceptRevision(loaded.revisionId, zone);
-      await rescheduleReminders().catch(() => undefined);
-      router.dismissTo({ pathname: '/activity/[id]', params: { id, updated: '1' } });
+      const remindersOk = await rescheduleReminders().then(
+        () => true,
+        () => false,
+      );
+      router.dismissTo({ pathname: '/activity/[id]', params: { id, updated: remindersOk ? '1' : 'sin-avisos' } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo aceptar el plan.');
       if (e instanceof repo.StaleRevisionError) load();
