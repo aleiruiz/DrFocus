@@ -1,9 +1,11 @@
 import Constants from 'expo-constants';
 import { File, Paths } from 'expo-file-system';
+import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
 import { buildPilotExport } from '@drfocus/domain';
 import { db, schema as s } from '@/db/client';
 import * as repo from '@/db/repo';
+import { clearToken } from './agent';
 
 /** Genera los archivos JSON y CSV del piloto (TECH_SPEC §5) y devuelve sus rutas. */
 export function writePilotExport(includeText: boolean): { json: File; csv: File } {
@@ -32,4 +34,11 @@ export function writePilotExport(includeText: boolean): { json: File; csv: File 
 export async function shareFile(file: File, mimeType: string) {
   if (!(await Sharing.isAvailableAsync())) throw new Error('Este teléfono no permite compartir archivos.');
   await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: 'Compartir datos del piloto' });
+}
+
+/** Borrado total (TECH_SPEC §9): cancela avisos programados, borra las tablas locales y el token. */
+export async function wipeEverything() {
+  await Notifications.cancelAllScheduledNotificationsAsync();
+  repo.wipeAll();
+  await clearToken();
 }
