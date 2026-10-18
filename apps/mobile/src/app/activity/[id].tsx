@@ -38,6 +38,13 @@ export default function ActivityDetail() {
     if (activity?.status === 'draft') router.replace({ pathname: '/plan/[id]/preview', params: { id } });
   }, [activity?.status, id]);
 
+  // El aviso de «Plan actualizado» se muestra unos segundos y luego se quita.
+  useEffect(() => {
+    if (updated !== '1') return;
+    const t = setTimeout(() => router.setParams({ updated: '' }), 5000);
+    return () => clearTimeout(t);
+  }, [updated]);
+
   // Desde un aviso llega ?objective=: se abre su hoja, o se avisa si ese paso ya no existe.
   const handled = useRef(false);
   useEffect(() => {

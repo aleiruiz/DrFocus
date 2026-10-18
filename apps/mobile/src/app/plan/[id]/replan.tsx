@@ -13,7 +13,19 @@ import { rescheduleReminders } from '@/features/reminders';
 import { cap, fmtLong, fmtTime } from '@/lib/format';
 import { useNow, usePrefs } from '@/lib/hooks';
 
-type Loaded = { revisionId: string; kind: string; plan: repo.ProposedPlan };
+type Loaded = { revisionId: string; kind: string; plan: repo.ProposedPlan; splitDropped: boolean };
+
+/**
+ * Un borrador de «Dividir más» sirve solo si nadie tocó los objetivos después de crearlo:
+ * editar, borrar o registrar avance no sube activity.revision, así que se compara contra los objetivos.
+ */
+function splitStillValid(draft: NonNullable<ReturnType<typeof repo.latestDraft>>, plan: repo.ProposedPlan, activityId: string) {
+  const current = repo.getObjectives(activityId);
+  const ids = new Set(current.map((o) => o.id));
+  const touched = current.some((o) => o.updatedAt > draft.createdAt);
+  const gone = plan.objectives.some((o) => o.existingId && !ids.has(o.existingId));
+  return !touched && !gone;
+}
 
 /**
  * Prepara la propuesta. Un borrador de «Dividir más» vigente se recalcula con sus objetivos;
@@ -23,14 +35,21 @@ function prepare(id: string): Loaded | null {
   const activity = repo.getActivity(id);
   if (!activity || activity.deletedAt) return null;
   const draft = repo.latestDraft(id);
+  let splitDropped = false;
   if (draft && draft.kind === 'split' && draft.baseRevision === activity.revision) {
     const p = JSON.parse(draft.proposedJson) as repo.ProposedPlan;
-    proposeReplan(id, p.objectives, 'split', p.assumptions);
+    if (splitStillValid(draft, p, id)) {
+      proposeReplan(id, p.objectives, 'split', p.assumptions);
+    } else {
+      repo.discardDraft(draft.id);
+      splitDropped = true;
+      proposeReplan(id, repo.currentPlanDrafts(id), 'replan');
+    }
   } else {
     proposeReplan(id, repo.currentPlanDrafts(id), 'replan');
   }
   const saved = repo.latestDraft(id)!;
-  return { revisionId: saved.id, kind: saved.kind, plan: JSON.parse(saved.proposedJson) as repo.ProposedPlan };
+  return { revisionId: saved.id, kind: saved.kind, plan: JSON.parse(saved.proposedJson) as repo.ProposedPlan, splitDropped };
 }
 
 /** S10 · Reorganizar: comparación antes/después y aceptación, sin tocar lo ya terminado ni la fecha límite. */
@@ -126,6 +145,7 @@ export default function Replan() {
       <T v="h2">{activity.title}</T>
       <Banner kind="info" title="La fecha límite no cambia">{`${cap(fmtLong(activity.deadlineAt, zone))}, ${fmtTime(activity.deadlineAt, zone)}`}</Banner>
       {error ? <Banner kind="error">{error}</Banner> : null}
+      {loaded.splitDropped ? <Banner kind="info">Cambiaste pasos después de dividir, así que la división anterior se descartó. Puedes volver a dividir desde el paso.</Banner> : null}
 
       {nothingPending ? (
         <Banner kind="ok" title="No hay nada que reorganizar">Todos los objetivos de esta actividad ya están terminados.</Banner>
