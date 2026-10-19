@@ -20,6 +20,34 @@ const base = (over: Partial<PlannerInput> = {}): PlannerInput => ({
 });
 
 describe('planSchedule', () => {
+  it('con un bloque preferido largo y ventanas cortas, usa sesiones más cortas antes de declarar que no cabe', () => {
+    const rules = [1, 2, 3, 4, 5].map((weekday) => ({ weekday, startLocal: '17:00', endLocal: '17:30' }));
+    const input = base({ rules, objectives: chain([60]), preferredBlockMinutes: 90 });
+    const out = planSchedule(input);
+    expect(out.feasible).toBe(true);
+    expect(validateSchedule(input, out)).toEqual([]);
+    expect(out.sessions.map((s) => (Date.parse(s.endsAt) - Date.parse(s.startsAt)) / 60000)).toEqual([30, 30]);
+  });
+
+  it('no deja sesiones menores al bloque mínimo', () => {
+    const rules = [1, 2, 3, 4, 5].map((weekday) => ({ weekday, startLocal: '17:00', endLocal: '17:15' }));
+    const out = planSchedule(base({ rules, objectives: chain([17]), preferredBlockMinutes: 30 }));
+    const lengths = out.sessions.map((s) => (Date.parse(s.endsAt) - Date.parse(s.startsAt)) / 60000);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(5);
+    expect(lengths.reduce((a, b) => a + b, 0)).toBe(17);
+  });
+
+  it('no llena los huecos de 5 minutos que dejan otras actividades', () => {
+    const first = planSchedule(base());
+    const input = base({ busy: first.sessions, objectives: chain([25, 40, 10]), deadlineAt: '2026-10-31T05:59:00.000Z' });
+    const out = planSchedule(input);
+    expect(out.feasible).toBe(true);
+    expect(validateSchedule(input, out)).toEqual([]);
+    const lengths = out.sessions.map((s) => (Date.parse(s.endsAt) - Date.parse(s.startsAt)) / 60000);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(10);
+    expect(lengths.reduce((a, b) => a + b, 0)).toBe(75);
+  });
+
   it('ensayo con una semana: sesiones dentro de la disponibilidad, sin solapes y en orden', () => {
     const input = base();
     const out = planSchedule(input);

@@ -42,7 +42,7 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "db:generate": "drizzle-kit generate",

@@ -18,6 +18,17 @@ import { fmtDayTime, fmtDur } from '@/lib/format';
 
 type Editing = { key: string | null } | null;
 
+/** Cierra el flujo de creación (selector, datos, vista previa) para que «Atrás» desde la actividad regrese a las pestañas. */
+function openActivity(id: string) {
+  if (router.canDismiss()) router.dismissAll();
+  router.push({ pathname: '/activity/[id]', params: { id } });
+}
+
+function exitToToday() {
+  if (router.canDismiss()) router.dismissAll();
+  router.navigate('/today');
+}
+
 /** S07 · Vista previa: editar, agregar, quitar y reordenar pasos; resolver conflictos; aceptar. */
 export default function PlanPreview() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,7 +79,7 @@ export default function PlanPreview() {
     return (
       <Screen>
         <Banner kind="ok" title="Este plan ya está aceptado">Puedes verlo y cambiarlo desde la actividad.</Banner>
-        <Button label="Ver la actividad" onPress={() => router.replace({ pathname: '/activity/[id]', params: { id } })} />
+        <Button label="Ver la actividad" onPress={() => openActivity(id)} />
       </Screen>
     );
 
@@ -119,7 +130,7 @@ export default function PlanPreview() {
       const { firstPlan } = repo.acceptRevision(draft.id, zone);
       if (firstPlan && prefs.remindersEnabled && (await permissionStatus()) === 'undetermined' && (await askForReminders())) await requestPermission();
       await rescheduleReminders().catch(() => undefined);
-      router.replace({ pathname: '/activity/[id]', params: { id } });
+      openActivity(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo aceptar el plan.');
     } finally {
@@ -133,7 +144,7 @@ export default function PlanPreview() {
         <>
           {!feasible ? <T v="small" color={colors.ink2} style={{ textAlign: 'center' }}>{objectives.length ? 'Resuelve lo que no cabe para poder aceptar.' : 'Agrega al menos un paso para aceptar.'}</T> : null}
           <Button label="Aceptar plan" kind="sun" disabled={!feasible} loading={busy} onPress={accept} />
-          <Button label="Guardar borrador y salir" kind="text" onPress={() => router.replace('/today')} />
+          <Button label="Guardar borrador y salir" kind="text" onPress={exitToToday} />
         </>
       }
     >

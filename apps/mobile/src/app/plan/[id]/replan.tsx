@@ -132,11 +132,12 @@ export default function Replan() {
   };
 
   const nothingPending = cmp.pending.length === 0;
+  const noChanges = !nothingPending && feasible && cmp.changes === 0 && cmp.totalAfter === cmp.totalBefore;
 
   return (
     <Screen
       footer={
-        nothingPending ? (
+        nothingPending || noChanges ? (
           <Button label="Volver" onPress={keep} />
         ) : (
           <>
@@ -154,6 +155,9 @@ export default function Replan() {
 
       {nothingPending ? (
         <Banner kind="ok" title="No hay nada que reorganizar">Todos los objetivos de esta actividad ya están terminados.</Banner>
+      ) : null}
+      {noChanges ? (
+        <Banner kind="ok" title="Tu plan ya está al día">Reorganizar no cambiaría ninguna fecha. Puedes seguir con tu plan actual.</Banner>
       ) : null}
 
       {!feasible && !nothingPending ? (

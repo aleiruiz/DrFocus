@@ -64,6 +64,16 @@ const roundUp = (ms: number, step: number) => Math.ceil(ms / step) * step;
  */
 export function planSchedule(input: PlannerInput): PlannerOutput {
   const minBlock = input.minBlockMinutes ?? 5;
+  const pref = Math.max(minBlock, input.preferredBlockMinutes);
+  // Prefiere sesiones de al menos la mitad del bloque preferido; si así no cabe, usa el mínimo (TECH_SPEC §6).
+  const preferred = scheduleWith(input, Math.max(minBlock, Math.ceil(pref / 2 / 5) * 5));
+  if (preferred.feasible || preferred.unassignedMinutes === 0) return preferred;
+  const fallback = scheduleWith(input, minBlock);
+  return fallback.unassignedMinutes < preferred.unassignedMinutes ? fallback : preferred;
+}
+
+function scheduleWith(input: PlannerInput, shortest: number): PlannerOutput {
+  const minBlock = input.minBlockMinutes ?? 5;
   const breakMs = (input.breakMinutes ?? 5) * MINUTE;
   const pref = Math.max(minBlock, input.preferredBlockMinutes);
   const now = roundUp(toMs(input.now), 5 * MINUTE);
@@ -149,12 +159,17 @@ export function planSchedule(input: PlannerInput): PlannerOutput {
         if (left <= 0) break;
         let cursor = Math.max(span.start, earliest);
         const end = Math.min(span.end, limit);
-        while (left > 0 && end - cursor >= minBlock * MINUTE) {
+        // No usa huecos menores a la mitad del bloque preferido (salvo para lo último que falte).
+        while (left > 0 && end - cursor >= Math.min(left, shortest) * MINUTE) {
           const room = Math.floor((end - cursor) / MINUTE);
           let chunk = Math.min(left, pref, room);
           const rest = left - chunk;
-          // Evita dejar un residuo menor al bloque mínimo.
-          if (rest > 0 && rest < minBlock) chunk = chunk - (minBlock - rest) >= minBlock ? chunk - (minBlock - rest) : chunk;
+          // Evita dejar un residuo corto: lo absorbe si cabe o recorta este bloque para que el residuo alcance el mínimo.
+          if (rest > 0 && rest < shortest) {
+            if (room >= left) chunk = left;
+            else if (chunk - (shortest - rest) >= minBlock) chunk -= shortest - rest;
+            else if (rest < minBlock && chunk - (minBlock - rest) >= minBlock) chunk -= minBlock - rest;
+          }
           const startMs = cursor;
           const endMs = cursor + chunk * MINUTE;
           sessions.push({ objectiveKey: o.key, startsAt: toIso(startMs), endsAt: toIso(endMs), locked: false });

@@ -1,4 +1,4 @@
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { colors, radius, space } from '@drfocus/design-tokens';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -30,10 +30,11 @@ export function DateField({ label, value, onChange, minimumDate }: { label: stri
           value={current}
           mode="date"
           minimumDate={minimumDate}
-          onChange={(e: DateTimePickerEvent, d?: Date) => {
+          onValueChange={(_e, d) => {
             setOpen(false);
-            if (e.type === 'set' && d) onChange(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+            onChange(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
           }}
+          onDismiss={() => setOpen(false)}
         />
       )}
     </View>
@@ -57,10 +58,11 @@ export function TimeField({ label, value, onChange }: { label: string; value: st
           value={current}
           mode="time"
           is24Hour={false}
-          onChange={(e: DateTimePickerEvent, d?: Date) => {
+          onValueChange={(_e, d) => {
             setOpen(false);
-            if (e.type === 'set' && d) onChange(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+            onChange(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
           }}
+          onDismiss={() => setOpen(false)}
         />
       )}
     </View>

@@ -23,6 +23,7 @@ supabase/functions/plan/  Función del agente (pendiente)
 ```bash
 npm install                 # una sola vez, en la raíz
 npm run dev:mobile          # servidor de desarrollo de Expo
+npm --workspace apps/mobile run android   # compila e instala la app en el emulador o teléfono
 npm run typecheck           # TypeScript en paquetes y app
 npm run lint                # ESLint
 npm test                    # Vitest (dominio y contratos)
@@ -31,6 +32,15 @@ npm run build:android:preview  # APK de prueba con EAS
 ```
 
 Los paquetes importan con extensión `.ts` explícita para que la función de Supabase (Deno) pueda usar `packages/contracts` sin compilar.
+
+## Correr en Android
+
+La app no abre en Expo Go porque expo-notifications necesita módulos nativos. Hay que compilar una versión de desarrollo con `npm --workspace apps/mobile run android` (`expo run:android`); después basta `npm run dev:mobile`.
+
+En Windows:
+
+- El Android SDK debe estar en una ruta sin espacios (por ejemplo `C:\Android\Sdk`). Con espacios, como `C:\Users\Nombre Apellido\…`, falla el enlazado C++ de react-native-screens y worklets.
+- El ninja 1.10 que trae el SDK no acepta rutas de más de 260 caracteres. Usa ninja 1.12 o más reciente, o acorta la ruta del repositorio (por ejemplo con `subst X: C:\Repos\DrFocus` y compila desde `X:`).
 
 ## Variables
 
