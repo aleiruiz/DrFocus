@@ -160,7 +160,7 @@ export function Banner({ kind = 'info', title, children }: { kind?: 'info' | 'wa
 export function Section({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
   return (
     <View style={{ gap: space.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: space.sm }}>
         <T v="eyebrow" color={colors.ink3} accessibilityRole="header">{title}</T>
         {right}
       </View>

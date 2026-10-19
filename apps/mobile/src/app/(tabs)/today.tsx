@@ -9,7 +9,7 @@ import { MascotBubble } from '@/components/MascotBubble';
 import { ObjectiveRow } from '@/components/ObjectiveRow';
 import { ObjectiveSheet } from '@/components/ObjectiveSheet';
 import { Banner, Button, Card, ProgressBar, Screen, Section, T } from '@/components/ui';
-import { cap, endOfLocalDay, fmtLong, fmtRange } from '@/lib/format';
+import { cap, endOfLocalDay, fmtDur, fmtLong, fmtRange } from '@/lib/format';
 import { useNow, usePrefs } from '@/lib/hooks';
 import { useWorkspace, type ObjectiveView } from '@/lib/useWorkspace';
 
@@ -54,6 +54,9 @@ export default function Today() {
             <T v="eyebrow" color={colors.petrol}>Siguiente paso</T>
             <T v="h2">{view.next.title}</T>
             <T color={colors.ink2}>{view.next.activity.title}</T>
+            {view.next.status === 'in_progress' ? (
+              <T v="small" color={colors.ink2}>{`Ya avanzaste: faltan ${fmtDur(view.next.remainingMinutes)} de ${fmtDur(view.next.estimatedMinutes)}`}</T>
+            ) : null}
             {view.next.nextSession ? <T v="small" color={colors.ink2}>Sesión: {fmtRange(view.next.nextSession.startsAt, view.next.nextSession.endsAt, zone)}</T> : null}
             <Button label="Abrir paso" kind="sun" onPress={() => setSelected(view.next!.id)} />
           </Card>

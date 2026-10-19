@@ -23,6 +23,8 @@ export default function Availability() {
     }
     repo.updatePrefs({ onboardingVersion: ONBOARDING_VERSION });
     repo.logEvent('onboarding_completed', null, { role: prefs.role, days: rules.length });
+    // Saca la bienvenida de la pila para que «Atrás» desde Hoy no regrese al onboarding.
+    if (router.canDismiss()) router.dismissAll();
     router.replace('/today');
   };
 

@@ -20,6 +20,17 @@ const base = (over: Partial<PlannerInput> = {}): PlannerInput => ({
 });
 
 describe('planSchedule', () => {
+  it('no llena los huecos de 5 minutos que dejan otras actividades', () => {
+    const first = planSchedule(base());
+    const input = base({ busy: first.sessions, objectives: chain([25, 40, 10]), deadlineAt: '2026-10-31T05:59:00.000Z' });
+    const out = planSchedule(input);
+    expect(out.feasible).toBe(true);
+    expect(validateSchedule(input, out)).toEqual([]);
+    const lengths = out.sessions.map((s) => (Date.parse(s.endsAt) - Date.parse(s.startsAt)) / 60000);
+    expect(Math.min(...lengths)).toBeGreaterThanOrEqual(10);
+    expect(lengths.reduce((a, b) => a + b, 0)).toBe(75);
+  });
+
   it('ensayo con una semana: sesiones dentro de la disponibilidad, sin solapes y en orden', () => {
     const input = base();
     const out = planSchedule(input);

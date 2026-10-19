@@ -66,6 +66,7 @@ export function planSchedule(input: PlannerInput): PlannerOutput {
   const minBlock = input.minBlockMinutes ?? 5;
   const breakMs = (input.breakMinutes ?? 5) * MINUTE;
   const pref = Math.max(minBlock, input.preferredBlockMinutes);
+  const shortest = Math.max(minBlock, Math.ceil(pref / 2 / 5) * 5);
   const now = roundUp(toMs(input.now), 5 * MINUTE);
   const deadline = toMs(input.deadlineAt);
   const conflicts: PlannerConflict[] = [];
@@ -149,12 +150,16 @@ export function planSchedule(input: PlannerInput): PlannerOutput {
         if (left <= 0) break;
         let cursor = Math.max(span.start, earliest);
         const end = Math.min(span.end, limit);
-        while (left > 0 && end - cursor >= minBlock * MINUTE) {
+        // No usa huecos menores a la mitad del bloque preferido (salvo para lo último que falte).
+        while (left > 0 && end - cursor >= Math.min(left, shortest) * MINUTE) {
           const room = Math.floor((end - cursor) / MINUTE);
           let chunk = Math.min(left, pref, room);
           const rest = left - chunk;
-          // Evita dejar un residuo menor al bloque mínimo.
-          if (rest > 0 && rest < minBlock) chunk = chunk - (minBlock - rest) >= minBlock ? chunk - (minBlock - rest) : chunk;
+          // Evita dejar un residuo corto: lo absorbe si cabe o recorta este bloque para que el residuo alcance el mínimo.
+          if (rest > 0 && rest < shortest) {
+            if (room >= left) chunk = left;
+            else if (chunk - (shortest - rest) >= minBlock) chunk -= shortest - rest;
+          }
           const startMs = cursor;
           const endMs = cursor + chunk * MINUTE;
           sessions.push({ objectiveKey: o.key, startsAt: toIso(startMs), endsAt: toIso(endMs), locked: false });
