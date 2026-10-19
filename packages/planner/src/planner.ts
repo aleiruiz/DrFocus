@@ -64,9 +64,18 @@ const roundUp = (ms: number, step: number) => Math.ceil(ms / step) * step;
  */
 export function planSchedule(input: PlannerInput): PlannerOutput {
   const minBlock = input.minBlockMinutes ?? 5;
+  const pref = Math.max(minBlock, input.preferredBlockMinutes);
+  // Prefiere sesiones de al menos la mitad del bloque preferido; si así no cabe, usa el mínimo (TECH_SPEC §6).
+  const preferred = scheduleWith(input, Math.max(minBlock, Math.ceil(pref / 2 / 5) * 5));
+  if (preferred.feasible || preferred.unassignedMinutes === 0) return preferred;
+  const fallback = scheduleWith(input, minBlock);
+  return fallback.unassignedMinutes < preferred.unassignedMinutes ? fallback : preferred;
+}
+
+function scheduleWith(input: PlannerInput, shortest: number): PlannerOutput {
+  const minBlock = input.minBlockMinutes ?? 5;
   const breakMs = (input.breakMinutes ?? 5) * MINUTE;
   const pref = Math.max(minBlock, input.preferredBlockMinutes);
-  const shortest = Math.max(minBlock, Math.ceil(pref / 2 / 5) * 5);
   const now = roundUp(toMs(input.now), 5 * MINUTE);
   const deadline = toMs(input.deadlineAt);
   const conflicts: PlannerConflict[] = [];
@@ -159,6 +168,7 @@ export function planSchedule(input: PlannerInput): PlannerOutput {
           if (rest > 0 && rest < shortest) {
             if (room >= left) chunk = left;
             else if (chunk - (shortest - rest) >= minBlock) chunk -= shortest - rest;
+            else if (rest < minBlock && chunk - (minBlock - rest) >= minBlock) chunk -= minBlock - rest;
           }
           const startMs = cursor;
           const endMs = cursor + chunk * MINUTE;
