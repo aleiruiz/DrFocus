@@ -54,6 +54,23 @@ export function comparePlan(plan: ProposedPlan) {
   };
 }
 
+type ObjectiveFields = { id: string; status: string; remainingMinutes: number; estimatedMinutes: number; title: string; expectedResult: string };
+
+/** Huella de todos los objetivos guardados de una actividad, incluido el que se dividió. */
+export function objectivesSnapshot(objectives: readonly ObjectiveFields[]): string {
+  return JSON.stringify(
+    [...objectives].sort((a, b) => a.id.localeCompare(b.id)).map((o) => [o.id, o.status, o.remainingMinutes, o.estimatedMinutes, o.title, o.expectedResult]),
+  );
+}
+
+/**
+ * Editar, borrar o registrar avance no sube activity.revision, así que una división pendiente solo se reutiliza
+ * si llega recién hecha desde «Dividir más» (primera carga) o si los objetivos siguen iguales que al abrir la pantalla.
+ */
+export function shouldReuseSplit(openedWith: string | null, current: string, cameFromSplit: boolean): boolean {
+  return openedWith === null ? cameFromSplit : openedWith === current;
+}
+
 /** Texto claro para cada conflicto del planificador. */
 export function describeConflict(c: PlannerConflict, titleOf: (key: string) => string): string {
   switch (c.kind) {

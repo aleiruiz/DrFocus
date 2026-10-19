@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProposedPlan } from '../../db/repo';
-import { comparePlan } from './replan-model';
+import { comparePlan, objectivesSnapshot, shouldReuseSplit } from './replan-model';
 
 const obj = (key: string, status: 'todo' | 'completed', extra: { dueAt?: string | null; existingId?: string | null } = {}) => ({
   key,
@@ -44,5 +44,29 @@ describe('comparePlan', () => {
     expect(r.pending.map((x) => [x.key, x.kind])).toEqual([['b', 'moved'], ['c', 'same'], ['n', 'added']]);
     expect(r.removed.map((x) => x.key)).toEqual(['d']);
     expect(r.changes).toBe(3);
+  });
+});
+
+describe('shouldReuseSplit', () => {
+  const row = (id: string, status: string, remainingMinutes = 30) => ({ id, status, remainingMinutes, estimatedMinutes: 30, title: `Paso ${id}`, expectedResult: 'Listo' });
+  const opened = objectivesSnapshot([row('a', 'completed', 0), row('p', 'todo')]);
+
+  it('reutiliza la división recién hecha y la conserva mientras nada cambie', () => {
+    expect(shouldReuseSplit(null, opened, true)).toBe(true);
+    expect(shouldReuseSplit(opened, objectivesSnapshot([row('p', 'todo'), row('a', 'completed', 0)]), false)).toBe(true);
+  });
+
+  it('descarta una división pendiente si la pantalla se abre sin venir de «Dividir más»', () => {
+    expect(shouldReuseSplit(null, opened, false)).toBe(false);
+  });
+
+  it('descarta la división si el paso dividido cambió (completado o con avance)', () => {
+    expect(shouldReuseSplit(opened, objectivesSnapshot([row('a', 'completed', 0), row('p', 'completed', 0)]), true)).toBe(false);
+    expect(shouldReuseSplit(opened, objectivesSnapshot([row('a', 'completed', 0), row('p', 'in_progress', 10)]), true)).toBe(false);
+  });
+
+  it('descarta la división si se borró o reabrió otro paso', () => {
+    expect(shouldReuseSplit(opened, objectivesSnapshot([row('p', 'todo')]), true)).toBe(false);
+    expect(shouldReuseSplit(opened, objectivesSnapshot([row('a', 'todo'), row('p', 'todo')]), true)).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import { mascotMessage } from '@drfocus/domain';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { comparePlan, describeConflict } from '@/components/activity/replan-model';
+import { comparePlan, describeConflict, objectivesSnapshot, shouldReuseSplit } from '@/components/activity/replan-model';
 import { PlanComparison } from '@/components/activity/PlanComparison';
 import { MascotBubble } from '@/components/MascotBubble';
 import { Banner, Button, Card, Screen, T } from '@/components/ui';
@@ -16,37 +16,22 @@ import { useNow, usePrefs } from '@/lib/hooks';
 type Loaded = { revisionId: string; kind: string; plan: repo.ProposedPlan; splitDropped: boolean };
 
 /**
- * Un borrador de «Dividir más» sirve solo si los objetivos siguen como estaban al dividir.
- * Editar, borrar o registrar avance no sube activity.revision, así que se compara el contenido.
+ * Prepara la propuesta. Un borrador de «Dividir más» se recalcula con sus objetivos solo si `reuseSplit`
+ * lo permite; si no, se descarta y se parte del plan guardado. Cada visita usa la hora y la disponibilidad actuales.
  */
-function splitStillValid(plan: repo.ProposedPlan, activityId: string) {
-  const byId = new Map(repo.getObjectives(activityId).map((o) => [o.id, o]));
-  return plan.objectives.every((d) => {
-    if (!d.existingId) return true;
-    const o = byId.get(d.existingId);
-    return !!o && o.status === d.status && o.remainingMinutes === d.remainingMinutes && o.estimatedMinutes === d.estimatedMinutes && o.title === d.title && o.expectedResult === d.expectedResult;
-  });
-}
-
-/**
- * Prepara la propuesta. Un borrador de «Dividir más» vigente se recalcula con sus objetivos;
- * en cualquier otro caso se parte del plan guardado, así cada visita usa la hora y la disponibilidad actuales.
- */
-function prepare(id: string): Loaded | null {
+function prepare(id: string, reuseSplit: boolean): Loaded | null {
   const activity = repo.getActivity(id);
   if (!activity || activity.deletedAt) return null;
   const draft = repo.latestDraft(id);
   let splitDropped = false;
-  if (draft && draft.kind === 'split' && draft.baseRevision === activity.revision) {
+  if (draft && draft.kind === 'split' && draft.baseRevision === activity.revision && reuseSplit) {
     const p = JSON.parse(draft.proposedJson) as repo.ProposedPlan;
-    if (splitStillValid(p, id)) {
-      proposeReplan(id, p.objectives, 'split', p.assumptions);
-    } else {
+    proposeReplan(id, p.objectives, 'split', p.assumptions);
+  } else {
+    if (draft && draft.kind === 'split') {
       repo.discardDraft(draft.id);
       splitDropped = true;
-      proposeReplan(id, repo.currentPlanDrafts(id), 'replan');
     }
-  } else {
     proposeReplan(id, repo.currentPlanDrafts(id), 'replan');
   }
   const saved = repo.latestDraft(id)!;
@@ -55,7 +40,7 @@ function prepare(id: string): Loaded | null {
 
 /** S10 · Reorganizar: comparación antes/después y aceptación, sin tocar lo ya terminado ni la fecha límite. */
 export default function Replan() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, split } = useLocalSearchParams<{ id: string; split?: string }>();
   const prefs = usePrefs();
   const now = useNow();
   const zone = prefs?.timezone ?? 'America/Mexico_City';
@@ -64,6 +49,7 @@ export default function Replan() {
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const snapRef = useRef<string | null>(null);
 
   const load = useCallback(() => {
     try {
@@ -72,13 +58,17 @@ export default function Replan() {
         router.replace({ pathname: '/plan/[id]/preview', params: { id } });
         return;
       }
-      const next = prepare(id);
+      // Foto de los objetivos al abrir la pantalla: si cambian (por ejemplo desde un aviso), la división ya no sirve.
+      const snap = objectivesSnapshot(repo.getObjectives(id));
+      const reuse = shouldReuseSplit(snapRef.current, snap, split === '1');
+      if (snapRef.current === null) snapRef.current = snap;
+      const next = prepare(id, reuse);
       setMissing(!next);
       setLoaded(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo preparar la propuesta.');
     }
-  }, [id]);
+  }, [id, split]);
 
   useFocusEffect(load);
 
@@ -160,7 +150,7 @@ export default function Replan() {
       <T v="h2">{activity.title}</T>
       <Banner kind="info" title="La fecha límite no cambia">{`${cap(fmtLong(activity.deadlineAt, zone))}, ${fmtTime(activity.deadlineAt, zone)}`}</Banner>
       {error ? <Banner kind="error">{error}</Banner> : null}
-      {loaded.splitDropped ? <Banner kind="info">Cambiaste pasos después de dividir, así que la división anterior se descartó. Puedes volver a dividir desde el paso.</Banner> : null}
+      {loaded.splitDropped ? <Banner kind="info">La división que no aceptaste se descartó porque los pasos cambiaron o la dejaste pendiente. Puedes volver a dividir desde el paso.</Banner> : null}
 
       {nothingPending ? (
         <Banner kind="ok" title="No hay nada que reorganizar">Todos los objetivos de esta actividad ya están terminados.</Banner>

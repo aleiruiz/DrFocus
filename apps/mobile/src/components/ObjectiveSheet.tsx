@@ -92,7 +92,7 @@ export function ObjectiveSheet({ o, zone, onClose, onCelebrate }: { o: Objective
       repo.logEvent('objective_split', o.id, { activityId: o.activityId, parts: children.length, minutesDelta, agent: useAgent });
       proposeReplan(o.activityId, objectives, 'split', minutesDelta ? [...assumptions, `Las partes suman ${minutesDelta > 0 ? `${minutesDelta} min más` : `${-minutesDelta} min menos`} que el objetivo original.`] : assumptions);
       onClose();
-      router.push({ pathname: '/plan/[id]/replan', params: { id: o.activityId } });
+      router.push({ pathname: '/plan/[id]/replan', params: { id: o.activityId, split: '1' } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo dividir.');
     } finally {
